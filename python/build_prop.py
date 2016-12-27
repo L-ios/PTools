@@ -5,6 +5,7 @@ import os
 import sys
 
 import sqlite3
+from io import StringIO
 from optparse import OptionParser
 
 from scan import CLOMUN_NAMES, BASE_TABLE_NAME, CLOMUN_PACKAGE, CLOMUN_VALUE, BRICK_DB_DIR, BRICK_DB
@@ -51,9 +52,15 @@ def get_data():
                      + 'FROM "' + BASE_TABLE_NAME + '" ' \
                      + 'WHERE "' + CLOMUN_PACKAGE + '" is "' + build_package_name + '"'
         brick_cursor.execute(select_sql)
-        build_info = []
+        build_info = {}
         for row in brick_cursor.fetchall():
-            build_info.append(row)
+            values = deal_trope(row[1])
+            if len(values) != 1:
+                print(u'存在问题的配置为：')
+                exit(row[0])
+            else:
+                build_info[row[0]] = values[0].rstrip()
+
         return build_info
 
 
@@ -63,14 +70,36 @@ def update_info(update_file, build_info):
     :param update_file: 需要更新的build.prop文件地址
     :return: 
     '''
-    if os.path.exists(update_file):
-        with io.open(os.path.abspath(update_file), mode='r+', ) as build_prop_file:
-            if build_prop_file.seekable():
-                build_prop_file.seek(0)
-                build_prop_file.write(u'\r')
-                build_prop_file.seek(0)
-            a = build_prop_file.read()
-            print a
+    global FILTER
+    if os.path.exists(update_file) is False:
+        print(u'%s不存在' % update_file)
+        return
+
+    # build_prop_str = u''
+    strio = StringIO()
+    with io.open(os.path.abspath(update_file), mode='r+', encoding='utf-8') as build_prop_file:
+        if build_prop_file.seekable():
+            build_prop_file.seek(0)
+        if build_prop_file.readable():
+            while True:
+                str_line = build_prop_file.readline()
+                if len(str_line) == 0:
+                    break
+                str_line = str_line.rstrip('\n')
+                key = str_line.split('=', 1)[0]
+                if build_info.get(key) is not None:
+                    continue
+                else:
+                    strio.write(str_line + '\n')
+            for k, v in build_info.items():
+                if FILTER and len(v) == 0:
+                    continue
+                line_string = k + '=' + v + '\n'
+                strio.write(line_string)
+        if build_prop_file.seekable():
+            build_prop_file.seek(0)
+        if build_prop_file.writable():
+            build_prop_file.write(strio.getvalue())
 
 
 def save_data(build_info):
@@ -80,16 +109,11 @@ def save_data(build_info):
         os.makedirs(build_prop_dir)
     build_prop = join(build_prop_dir, BUILD_PROP)
     with io.open(build_prop, mode='w') as build_prop_file:
-        for item in build_info:
-            values = deal_trope(item[1])
-            if len(values) != 1:
-                print(u'存在问题的配置为：')
-                exit(item[0])
-            else:
-                if len(values[0].rstrip()) == 0 and FILTER is True:
-                    continue
-                line_string = item[0] + '=' + values[0] + '\n'
-                build_prop_file.writelines(line_string)
+        for k, v in build_info.items():
+            if FILTER and len(v) == 0:
+                continue
+            line_string = k + '=' + v + '\n'
+            build_prop_file.write(line_string)
 
 
 def post_main():
