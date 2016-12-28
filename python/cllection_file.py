@@ -9,10 +9,16 @@ import xlsxwriter
 '''
 
 
+def write_row():
+    pass
+
+
+
+
 def main():
     workbook = xlsxwriter.Workbook('myexcel.xlsx')
     worksheet = workbook.add_worksheet()
-    worksheet.write('A1', 1)
+    worksheet.write(0, 1, 1)
     workbook.close()
 
 
