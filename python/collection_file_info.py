@@ -29,8 +29,15 @@ def main():
     row = 0
     for rootdir, _, files in os.walk(local_path):
         for file in files:
-            write_row(worksheet, row, file, os.path.abspath(file), os.path.getsize(file), os.path.getatime(file), calc_md5(file), calc_sha1(file))
-            row += 1
+            realpath = os.path.abspath(os.path.join(rootdir, file))
+            if os.path.exists(realpath):
+                write_row(worksheet, row, file, realpath,
+                          os.path.getsize(realpath),
+                          os.path.getatime(realpath),
+                          calc_md5(realpath),
+                          calc_sha1(realpath))
+                row += 1
+                print(realpath)
 
 
 def calc_sha1(filepath):
